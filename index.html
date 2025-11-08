@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>压缩机性能计算器</title>
-    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入自定义 CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="bg-gray-100 p-4 md:p-8">
@@ -21,29 +19,24 @@
                 </div>
             </header>
 
-            <!-- 输入表单 -->
             <form id="calc-form" class="space-y-6">
                 <div>
                     <label for="manufacturer" class="block text-sm font-semibold text-gray-700 mb-2">制造商 (Manufacturer)</label>
                     <select id="manufacturer" name="manufacturer" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                         <option value="Danfoss">Danfoss</option>
-                        <!-- 将来可以在这里添加更多制造商 -->
-                    </select>
+                        </select>
                 </div>
 
                 <div>
                     <label for="model" class="block text-sm font-semibold text-gray-700 mb-2">型号 (Model)</label>
                     <select id="model" name="model" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                        <option value="SY300">SY300 (50Hz)</option>
-                        <!-- 将来可以在这里添加更多型号 -->
-                    </select>
+                        </select>
                 </div>
 
                 <div>
                     <label for="refrigerant" class="block text-sm font-semibold text-gray-700 mb-2">制冷剂类型 (Refrigerant)</label>
                     <select id="refrigerant" name="refrigerant" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                        <!-- 选项将由 JS 动态加载 -->
-                    </select>
+                        </select>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -62,15 +55,12 @@
                 </button>
             </form>
 
-            <!-- 错误信息 -->
             <div id="error-message" class="hidden mt-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg" role="alert">
                 <strong class="font-bold">错误!</strong>
                 <span class="block sm:inline" id="error-text"></span>
             </div>
 
-            <!-- 结果显示区域 -->
             <div id="results" class="hidden mt-10">
-                <!-- 动态计算结果 -->
                 <section>
                     <h2 class="text-2xl font-semibold text-gray-800 border-b-2 border-blue-200 pb-2 mb-6">计算结果</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -105,20 +95,21 @@
                     </div>
                 </section>
 
-                <!-- 固定参数 -->
                 <section class="mt-8">
                     <h2 class="text-2xl font-semibold text-gray-800 border-b-2 border-gray-200 pb-2 mb-6">额定/固定参数</h2>
                     <div id="static-params" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- 静态参数将由 JS 动态加载 -->
-                    </div>
+                        </div>
                 </section>
             </div>
         </div>
     </div>
 
-    <!-- 引入数据和逻辑脚本 -->
-    <!-- data.js 必须在 app.js 之前加载 -->
+    <script src="sy300.data.js"></script>
+    <script src="sy240.data.js"></script>
+    <script src="sy380.data.js"></script>
+
     <script src="data.js"></script>
+    
     <script src="app.js"></script>
 </body>
 </html>
