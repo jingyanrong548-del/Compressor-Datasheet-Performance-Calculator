@@ -9,7 +9,9 @@ var allPerformanceData = {
         "SY240": sy240ModelData,
         "SY300": sy300ModelData,
         "SY380": sy380ModelData
-    }
-    // 您可以在这里添加其他制造商
-    // "AnotherBrand": { ... }
+    },
+    
+    // 添加 Nidec 数据
+    // nidecData 变量来自 nidec.data.js (已在 index.html 中此文件之前加载)
+    "Nidec": nidecData
 };

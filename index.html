@@ -11,22 +11,23 @@
     <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
         <div class="p-6 md:p-10">
             <header class="text-center md:text-left mb-8">
-                <h1 class="text-3xl md:text-4xl font-bold text-blue-700">压缩机性能计算器</h1>
-                <p class="text-gray-600 mt-2">根据压缩机样本数据表进行插值计算</p>
+                <h1 class="text-3xl md:text-4xl font-bold text-blue-700">压缩机性能工具</h1>
+                <p class="text-gray-600 mt-2">插值计算器 & 型号浏览器</p>
                 <div class="text-sm text-gray-500 mt-4 text-center md:text-right">
                     <span class="mr-4">版本: v1.1.0</span>
                     <span>编者: 荆炎荣</span>
                 </div>
             </header>
 
-            <form id="calc-form" class="space-y-6">
-                <div>
-                    <label for="manufacturer" class="block text-sm font-semibold text-gray-700 mb-2">制造商 (Manufacturer)</label>
-                    <select id="manufacturer" name="manufacturer" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                        <option value="Danfoss">Danfoss</option>
-                        </select>
-                </div>
+            <div class="mb-6">
+                <label for="manufacturer" class="block text-sm font-semibold text-gray-700 mb-2">制造商 (Manufacturer)</label>
+                <select id="manufacturer" name="manufacturer" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                    <option value="Danfoss">Danfoss (插值计算)</option>
+                    <option value="Nidec">Nidec (型号浏览)</option>
+                </select>
+            </div>
 
+            <form id="calc-form" class="space-y-6">
                 <div>
                     <label for="model" class="block text-sm font-semibold text-gray-700 mb-2">型号 (Model)</label>
                     <select id="model" name="model" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
@@ -101,14 +102,31 @@
                         </div>
                 </section>
             </div>
+
+            <div id="nidec-viewer" class="hidden mt-10 space-y-6">
+                <h2 class="text-2xl font-semibold text-gray-800 border-b-2 border-blue-200 pb-2 mb-6">
+                    尼得科 (Nidec) 型号浏览器
+                </h2>
+                
+                <div>
+                    <label for="nidec-refrigerant" class="block text-sm font-semibold text-gray-700 mb-2">
+                        按制冷剂浏览 (Browse by Refrigerant)
+                    </label>
+                    <select id="nidec-refrigerant" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        </select>
+                </div>
+
+                <div id="nidec-tables-container" class="space-y-8">
+                    </div>
+            </div>
+
         </div>
     </div>
 
     <script src="sy300.data.js"></script>
     <script src="sy240.data.js"></script>
     <script src="sy380.data.js"></script>
-
-    <script src="data.js"></script>
+    <script src="nidec.data.js"></script> <script src="data.js"></script>
     
     <script src="app.js"></script>
 </body>
