@@ -17,5 +17,9 @@ var allPerformanceData = {
 
     // 添加 Weishans 数据
     // weishansModelData 变量来自 weishans.data.js (已在 index.html 中此文件之前加载)
-    "Weishans": weishansModelData
+    "Weishans": weishansModelData,
+
+    // 添加 Inventech 数据
+    // inventechData 变量来自 inventech.data.js (已在 index.html 中此文件之前加载)
+    "Invotech": inventechData
 };

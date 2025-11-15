@@ -31,8 +31,30 @@ const dom = {
 
     // Weishans 浏览器元素
     weishansViewer: document.getElementById('weishans-viewer'),
-    weishansTablesContainer: document.getElementById('weishans-tables-container')
+    weishansTablesContainer: document.getElementById('weishans-tables-container'),
+
+    // Invotech 浏览器元素 (新增)
+    inventechViewer: document.getElementById('inventech-viewer'),
+    inventechFilterSelect: document.getElementById('inventech-filter-select'),
+    inventechTablesContainer: document.getElementById('inventech-tables-container')
 };
+
+// --- 状态标志 ---
+let nidecInitialized = false;
+let invotechInitialized = false;
+
+// --- 辅助数据 ---
+// (新增) 英华特应用类别显示名称映射
+const invotechAppDisplayNames = {
+    "LowAmbientHeating": "低环温供暖",
+    "HotWater": "热泵热水",
+    "HighTempDrying": "热泵烘干",
+    "UltraHighTempHeating": "工业高温热泵",
+    "Inverter": "变频压缩机",
+    "SilentEnhanced": "静音加强型",
+    "ExplosionProof": "防爆压缩机"
+};
+
 
 // --- 事件监听器 ---
 
@@ -148,36 +170,38 @@ function initializeSelectors() {
 }
 
 /**
- * 主模式切换：Danfoss (计算器) vs Nidec (浏览器) vs Weishans (混合)
+ * 主模式切换：Danfoss (计算器) vs Nidec (浏览器) vs Weishans (混合) vs Invotech (浏览器)
  */
 function handleManufacturerChange() {
     const manufacturer = dom.manufacturerSelect.value;
     dom.errorDiv.classList.add('hidden'); // 切换时隐藏错误
     dom.resultsDiv.classList.add('hidden'); // 隐藏旧结果
 
+    // 先隐藏所有特定内容
+    dom.calcForm.classList.add('hidden');
+    dom.staticParamsWrapper.classList.add('hidden');
+    dom.nidecViewer.classList.add('hidden');
+    dom.weishansViewer.classList.add('hidden');
+    dom.inventechViewer.classList.add('hidden'); // 隐藏 Invotech
+
     if (manufacturer === "Nidec") {
         // Nidec: 浏览器模式
-        dom.calcForm.classList.add('hidden');
-        dom.staticParamsWrapper.classList.add('hidden');
         dom.nidecViewer.classList.remove('hidden');
-        dom.weishansViewer.classList.add('hidden'); // 隐藏 Weishans
-        
         initializeNidecViewer();
     } else if (manufacturer === "Weishans") {
         // Weishans: 计算器 + 浏览器模式
         dom.calcForm.classList.remove('hidden');
         dom.staticParamsWrapper.classList.remove('hidden');
-        dom.nidecViewer.classList.add('hidden'); // 隐藏 Nidec
-        dom.weishansViewer.classList.remove('hidden'); // 显示 Weishans
-        
-        updateCalculatorSelectors(); // 这将填充模型并调用 updateRefrigerantAndParams
+        dom.weishansViewer.classList.remove('hidden');
+        updateCalculatorSelectors(); // 这将填充模型并调用 updateRefrigerantAndParams (它会处理 Weishans 表格)
+    } else if (manufacturer === "Invotech") {
+        // Invotech: 浏览器模式 (新增)
+        dom.inventechViewer.classList.remove('hidden');
+        initializeInvotechViewer();
     } else {
         // Danfoss (或其他): 仅计算器模式
         dom.calcForm.classList.remove('hidden');
         dom.staticParamsWrapper.classList.remove('hidden');
-        dom.nidecViewer.classList.add('hidden'); // 隐藏 Nidec
-        dom.weishansViewer.classList.add('hidden'); // 隐藏 Weishans
-        
         updateCalculatorSelectors();
     }
 }
@@ -283,7 +307,6 @@ function displayResults(results) {
 
 // --- Nidec 浏览器特定函数 ---
 
-let nidecInitialized = false;
 /**
  * 初始化 Nidec 浏览器 (填充制冷剂并设置监听器)
  */
@@ -403,7 +426,7 @@ function displayNidecTables() {
     }
 }
 
-// --- (新增) Weishans 浏览器特定函数 ---
+// --- Weishans 浏览器特定函数 ---
 
 /**
  * 显示 Weishans 选定型号的额定工况表格
@@ -475,6 +498,125 @@ function displayWeishansTables(model) {
     
     // 4. 将完整的应用容器添加到页面
     dom.weishansTablesContainer.appendChild(appContainer);
+}
+
+
+// --- (新增) Invotech 浏览器特定函数 ---
+
+/**
+ * 初始化 Invotech 浏览器 (填充应用类别并设置监听器)
+ */
+function initializeInvotechViewer() {
+    if (invotechInitialized) {
+        displayInvotechTables(); // 如果已初始化，只需刷新表格
+        return;
+    }
+    
+    const inventechData = allPerformanceData["Invotech"];
+    if (!inventechData) {
+        showError("Invotech 数据加载失败。");
+        return;
+    }
+
+    const applications = Object.keys(inventechData);
+    dom.inventechFilterSelect.innerHTML = ''; // 清空
+
+    applications.forEach(appKey => {
+        const option = document.createElement('option');
+        option.value = appKey;
+        // 使用映射获取友好名称，如果未定义则回退到 appKey
+        option.textContent = invotechAppDisplayNames[appKey] || appKey;
+        dom.inventechFilterSelect.appendChild(option);
+    });
+    
+    // 监听 Invotech 过滤器选择变化
+    dom.inventechFilterSelect.addEventListener('change', displayInvotechTables);
+
+    // 立即显示默认类别的表格
+    displayInvotechTables();
+    
+    invotechInitialized = true;
+}
+
+/**
+ * 显示 Invotech 选型表格
+ */
+function displayInvotechTables() {
+    const selectedApplicationKey = dom.inventechFilterSelect.value;
+    const inventechData = allPerformanceData["Invotech"];
+    
+    if (!inventechData || !inventechData[selectedApplicationKey]) {
+        dom.inventechTablesContainer.innerHTML = '<p class="text-gray-500">未找到该应用类别的数据。</p>';
+        return;
+    }
+
+    const applicationData = inventechData[selectedApplicationKey];
+    dom.inventechTablesContainer.innerHTML = ''; // 清空旧表格
+
+    // 遍历该应用下的所有制冷剂 (例如 "R410A", "R32")
+    for (const refrigerantKey in applicationData) {
+        const refrigerantData = applicationData[refrigerantKey];
+        
+        // 1. 创建容器
+        const appContainer = document.createElement('div');
+        appContainer.className = 'border border-gray-200 rounded-lg overflow-hidden shadow-md bg-white';
+
+        // 2. 创建标题和工况
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'p-4 bg-gray-50 border-b border-gray-200';
+        headerDiv.innerHTML = `
+            <h3 class="text-xl font-semibold text-blue-700">${refrigerantData.name || refrigerantKey}</h3>
+            <p class="text-sm text-gray-600 mt-1">${refrigerantData.conditions}</p>
+        `;
+        appContainer.appendChild(headerDiv);
+        
+        // 3. 创建表格
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'overflow-x-auto';
+        
+        const table = document.createElement('table');
+        table.className = 'min-w-full divide-y divide-gray-200';
+        
+        // 3a. 创建表头 (使用 Invotech 特定的列)
+        const thead = document.createElement('thead');
+        thead.className = 'bg-gray-100';
+        thead.innerHTML = `
+            <tr>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">型号 (Model)</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹数 (HP)</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排量 (cc)</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">制热量 (W)</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">功率 (W)</th>
+                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COP</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+        
+        // 3b. 创建表体
+        const tbody = document.createElement('tbody');
+        tbody.className = 'bg-white divide-y divide-gray-200';
+        
+        refrigerantData.models.forEach(model => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            tr.innerHTML = `
+                <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${model.model || 'N/A'}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${model.HP || 'N/A'}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${model.Displ_cc || 'N/A'}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${model.Capacity_W ? model.Capacity_W.toLocaleString() : 'N/A'}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${model.Power_W ? model.Power_W.toLocaleString() : 'N/A'}</td>
+                <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${model.COP || 'N/A'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+        appContainer.appendChild(tableWrapper);
+        
+        // 4. 将完整的应用容器添加到页面
+        dom.inventechTablesContainer.appendChild(appContainer);
+    }
 }
 
 
