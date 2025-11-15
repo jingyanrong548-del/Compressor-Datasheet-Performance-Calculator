@@ -7,7 +7,7 @@ const dom = {
     errorDiv: document.getElementById('error-message'),
     errorText: document.getElementById('error-text'),
 
-    // Danfoss 计算器元素
+    // Danfoss/Weishans 计算器元素
     calcForm: document.getElementById('calc-form'),
     resultsDiv: document.getElementById('results'),
     modelSelect: document.getElementById('model'),
@@ -27,7 +27,11 @@ const dom = {
     // Nidec 浏览器元素
     nidecViewer: document.getElementById('nidec-viewer'),
     nidecRefrigerantSelect: document.getElementById('nidec-refrigerant'),
-    nidecTablesContainer: document.getElementById('nidec-tables-container')
+    nidecTablesContainer: document.getElementById('nidec-tables-container'),
+
+    // Weishans 浏览器元素
+    weishansViewer: document.getElementById('weishans-viewer'),
+    weishansTablesContainer: document.getElementById('weishans-tables-container')
 };
 
 // --- 事件监听器 ---
@@ -35,7 +39,7 @@ const dom = {
 // 监听制造商选择，这是主模式切换器
 dom.manufacturerSelect.addEventListener('change', handleManufacturerChange);
 
-// 监听 Danfoss 计算器表单提交
+// 监听计算器表单提交
 dom.calcForm.addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -61,7 +65,6 @@ dom.calcForm.addEventListener('submit', function(e) {
         return;
     }
     
-    // 注意：allPerformanceData[manufacturer] 此时指向 sy...ModelData 变量
     const modelData = allPerformanceData[manufacturer][model];
     
     if (!modelData.refrigerants[refrigerant]) {
@@ -71,25 +74,33 @@ dom.calcForm.addEventListener('submit', function(e) {
 
     const data = modelData.refrigerants[refrigerant];
     
-    // 检查边界
-    const tcRange = [data.condTemps[0], data.condTemps[data.condTemps.length - 1]];
-    const toRange = [data.evapTemps[0], data.evapTemps[data.evapTemps.length - 1]];
+    // --- 修复开始: 边界检查 ---
+    // 无论数组升序还是降序，都获取正确的最小/最大值
+    const tcMin = Math.min(...data.condTemps);
+    const tcMax = Math.max(...data.condTemps);
+    const toMin = Math.min(...data.evapTemps);
+    const toMax = Math.max(...data.evapTemps);
 
-    if (tc < tcRange[0] || tc > tcRange[1]) {
-        showError(`冷凝温度 (${tc}°C) 超出范围 [${tcRange[0]}°C, ${tcRange[1]}°C]`);
+    if (tc < tcMin || tc > tcMax) {
+        showError(`冷凝温度 (${tc}°C) 超出范围 [${tcMin}°C, ${tcMax}°C]`);
         return;
     }
-    if (to < toRange[0] || to > toRange[1]) {
-        showError(`蒸发温度 (${to}°C) 超出范围 [${toRange[0]}°C, ${toRange[1]}°C]`);
+    if (to < toMin || to > toMax) {
+        showError(`蒸发温度 (${to}°C) 超出范围 [${toMin}°C, ${toMax}°C]`);
         return;
     }
+    // --- 修复结束 ---
 
     // 查找索引
     const tcIdx = findIndices(tc, data.condTemps);
     const toIdx = findIndices(to, data.evapTemps);
 
-    if (!tcIdx || !toIdx) {
-        showError('无法在数据表中找到匹配的温度索引。');
+    if (!tcIdx) {
+        showError('无法在数据表中找到匹配的冷凝温度索引。');
+        return;
+    }
+    if (!toIdx) {
+        showError('无法在数据表中找到匹配的蒸发温度索引。');
         return;
     }
     
@@ -110,11 +121,19 @@ dom.calcForm.addEventListener('submit', function(e) {
     }
 
     if (!hasError) {
+        // 手动计算 COP/EER (如果数据中不存在)
+        if (results.heating && results.power && !results.cop) {
+            results.cop = results.heating / results.power;
+        }
+        if (results.cooling && results.power && !results.eer) {
+            results.eer = results.cooling / results.power;
+        }
+        
         displayResults(results);
     }
 });
 
-// 监听 Danfoss 内部的选择框变化
+// 监听计算器内部的型号选择框变化
 dom.modelSelect.addEventListener('change', updateRefrigerantAndParams);
 
 // --- 核心功能函数 ---
@@ -129,51 +148,61 @@ function initializeSelectors() {
 }
 
 /**
- * 主模式切换：Danfoss (计算器) vs Nidec (浏览器)
+ * 主模式切换：Danfoss (计算器) vs Nidec (浏览器) vs Weishans (混合)
  */
 function handleManufacturerChange() {
     const manufacturer = dom.manufacturerSelect.value;
     dom.errorDiv.classList.add('hidden'); // 切换时隐藏错误
+    dom.resultsDiv.classList.add('hidden'); // 隐藏旧结果
 
     if (manufacturer === "Nidec") {
-        // 切换到 Nidec 浏览器模式
+        // Nidec: 浏览器模式
         dom.calcForm.classList.add('hidden');
         dom.staticParamsWrapper.classList.add('hidden');
-        dom.resultsDiv.classList.add('hidden');
         dom.nidecViewer.classList.remove('hidden');
+        dom.weishansViewer.classList.add('hidden'); // 隐藏 Weishans
         
-        // 初始化 Nidec 浏览器 (如果尚未初始化)
         initializeNidecViewer();
-    } else {
-        // 切换到 Danfoss (或其他) 计算器模式
+    } else if (manufacturer === "Weishans") {
+        // Weishans: 计算器 + 浏览器模式
         dom.calcForm.classList.remove('hidden');
         dom.staticParamsWrapper.classList.remove('hidden');
-        dom.nidecViewer.classList.add('hidden');
-        // resultsDiv 保持隐藏，直到计算
+        dom.nidecViewer.classList.add('hidden'); // 隐藏 Nidec
+        dom.weishansViewer.classList.remove('hidden'); // 显示 Weishans
         
-        // 运行原有的丹佛斯型号更新逻辑
-        updateDanfossModelSelect();
+        updateCalculatorSelectors(); // 这将填充模型并调用 updateRefrigerantAndParams
+    } else {
+        // Danfoss (或其他): 仅计算器模式
+        dom.calcForm.classList.remove('hidden');
+        dom.staticParamsWrapper.classList.remove('hidden');
+        dom.nidecViewer.classList.add('hidden'); // 隐藏 Nidec
+        dom.weishansViewer.classList.add('hidden'); // 隐藏 Weishans
+        
+        updateCalculatorSelectors();
     }
 }
 
-// --- Danfoss 计算器特定函数 ---
+// --- 计算器特定函数 (Danfoss & Weishans) ---
 
 /**
- * 更新 Danfoss 模型下拉列表
+ * 更新计算器模型下拉列表 (适用于 Danfoss, Weishans 等)
  */
-function updateDanfossModelSelect() {
+function updateCalculatorSelectors() {
     const manufacturer = dom.manufacturerSelect.value;
-    // 此时 allPerformanceData[manufacturer] 必定已定义
     const models = allPerformanceData[manufacturer] ? Object.keys(allPerformanceData[manufacturer]) : [];
     
     dom.modelSelect.innerHTML = ''; // 清空
     models.forEach(model => {
-        // 确保只添加 Danfoss 的型号 (sy...)，而不是 Nidec 的数据 (R22...)
+        // 确保数据结构正确 (有 staticParams)
         if (allPerformanceData[manufacturer][model] && allPerformanceData[manufacturer][model].staticParams) {
-             const option = document.createElement('option');
+            const option = document.createElement('option');
             option.value = model;
-            // 修复：为所有型号添加 (50Hz) 标识
-            option.textContent = `${model} (50Hz)`;
+            // 修复：为 Danfoss 型号添加 (50Hz) 标识
+            let modelName = model;
+            if (manufacturer === "Danfoss") {
+                modelName = `${model} (50Hz)`;
+            }
+            option.textContent = modelName;
             dom.modelSelect.appendChild(option);
         }
     });
@@ -183,7 +212,7 @@ function updateDanfossModelSelect() {
 }
 
 /**
- * 更新 Danfoss 制冷剂下拉列表和静态参数
+ * 更新制冷剂下拉列表和静态参数
  */
 function updateRefrigerantAndParams() {
     const manufacturer = dom.manufacturerSelect.value;
@@ -192,13 +221,14 @@ function updateRefrigerantAndParams() {
     if (!manufacturer || !model || !allPerformanceData[manufacturer] || !allPerformanceData[manufacturer][model] || !allPerformanceData[manufacturer][model].staticParams) {
         dom.refrigerantSelect.innerHTML = '';
         dom.staticParamsDiv.innerHTML = '';
+        dom.weishansViewer.classList.add('hidden'); // 确保隐藏 Weishans 表格
         return;
     }
 
     const modelData = allPerformanceData[manufacturer][model];
 
     // 1. 更新制冷剂
-    const refrigerants = Object.keys(modelData.refrigerants);
+    const refrigerants = modelData.refrigerants ? Object.keys(modelData.refrigerants) : [];
     dom.refrigerantSelect.innerHTML = ''; // 清空
     refrigerants.forEach(ref => {
         const option = document.createElement('option');
@@ -219,19 +249,33 @@ function updateRefrigerantAndParams() {
         `;
         dom.staticParamsDiv.appendChild(paramDiv);
     }
+    
+    // 3. (新增) 如果是 Weishans，更新其额定工况表
+    if (manufacturer === "Weishans") {
+        if (modelData && modelData.nominalData && modelData.nominalData.length > 0) {
+            displayWeishansTables(model); // 调用新函数
+            dom.weishansViewer.classList.remove('hidden');
+        } else {
+            dom.weishansViewer.classList.add('hidden'); // 如果此型号没有额定数据，则隐藏
+        }
+    }
 }
 
 /**
- * 显示计算结果 (Danfoss)
+ * 显示计算结果
  */
 function displayResults(results) {
-    dom.resultFields.heating.textContent = `${results.heating.toFixed(2)} W`;
-    dom.resultFields.cooling.textContent = `${results.cooling.toFixed(2)} W`;
-    dom.resultFields.power.textContent = `${results.power.toFixed(2)} W`;
-    dom.resultFields.cop.textContent = `${results.cop.toFixed(2)}`;
-    dom.resultFields.eer.textContent = `${results.eer.toFixed(2)}`;
-    dom.resultFields.current.textContent = `${results.current.toFixed(2)} A`;
-    dom.resultFields.massFlow.textContent = `${results.massFlow.toFixed(2)} kg/h`;
+    // 辅助函数，用于格式化或显示 "N/A"
+    const format = (val, unit) => (val !== null && val !== undefined) ? `${val.toFixed(2)} ${unit}` : "N/A";
+    const formatRatio = (val) => (val !== null && val !== undefined) ? val.toFixed(2) : "N/A";
+
+    dom.resultFields.heating.textContent = format(results.heating, 'W');
+    dom.resultFields.cooling.textContent = format(results.cooling, 'W');
+    dom.resultFields.power.textContent = format(results.power, 'W');
+    dom.resultFields.cop.textContent = formatRatio(results.cop);
+    dom.resultFields.eer.textContent = formatRatio(results.eer);
+    dom.resultFields.current.textContent = format(results.current, 'A');
+    dom.resultFields.massFlow.textContent = format(results.massFlow, 'kg/h');
     
     dom.resultsDiv.classList.remove('hidden');
     dom.errorDiv.classList.add('hidden');
@@ -359,6 +403,80 @@ function displayNidecTables() {
     }
 }
 
+// --- (新增) Weishans 浏览器特定函数 ---
+
+/**
+ * 显示 Weishans 选定型号的额定工况表格
+ */
+function displayWeishansTables(model) {
+    const manufacturer = "Weishans";
+    const modelData = allPerformanceData[manufacturer] ? allPerformanceData[manufacturer][model] : null;
+    
+    dom.weishansTablesContainer.innerHTML = ''; // 清空旧表格
+
+    if (!modelData || !modelData.nominalData || modelData.nominalData.length === 0) {
+        dom.weishansTablesContainer.innerHTML = '<p class="text-gray-500">未找到该型号的额定工况数据。</p>';
+        return;
+    }
+
+    const nominalDataList = modelData.nominalData;
+
+    // 1. 创建容器
+    const appContainer = document.createElement('div');
+    appContainer.className = 'border border-gray-200 rounded-lg overflow-hidden shadow-md bg-white';
+
+    // 2. 创建标题 (型号名)
+    const headerDiv = document.createElement('div');
+    headerDiv.className = 'p-4 bg-gray-50 border-b border-gray-200';
+    headerDiv.innerHTML = `<h3 class="text-xl font-semibold text-blue-700">${model} 额定工况</h3>`;
+    appContainer.appendChild(headerDiv);
+
+    // 3. 创建表格
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'overflow-x-auto';
+    
+    const table = document.createElement('table');
+    table.className = 'min-w-full divide-y divide-gray-200';
+    
+    // 3a. 创建表头
+    const thead = document.createElement('thead');
+    thead.className = 'bg-gray-100';
+    thead.innerHTML = `
+        <tr>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">制冷剂</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">工况</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">制热量 (W)</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">功率 (W)</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COP</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+    
+    // 3b. 创建表体
+    const tbody = document.createElement('tbody');
+    tbody.className = 'bg-white divide-y divide-gray-200';
+    
+    nominalDataList.forEach(data => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+        tr.innerHTML = `
+            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${data.refrigerant || 'N/A'}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${data.conditions || 'N/A'}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${data.capacity_W ? data.capacity_W.toLocaleString() : 'N/A'}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${data.power_W ? data.power_W.toLocaleString() : 'N/A'}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${data.cop || 'N/A'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    table.appendChild(tbody);
+    tableWrapper.appendChild(table);
+    appContainer.appendChild(tableWrapper);
+    
+    // 4. 将完整的应用容器添加到页面
+    dom.weishansTablesContainer.appendChild(appContainer);
+}
+
 
 // --- 通用函数 ---
 
@@ -375,21 +493,33 @@ function showError(message) {
  * 查找值在数组中的边界索引
  * @returns {object} { i1: lowerIndex, i2: upperIndex }
  */
+// --- 修复开始: `findIndices` 函数 ---
 function findIndices(val, arr) {
     const exactIndex = arr.indexOf(val);
     if (exactIndex !== -1) {
         return { i1: exactIndex, i2: exactIndex };
     }
+
+    // 检查数组是升序还是降序
+    const isAscending = arr.length < 2 || arr[0] < arr[arr.length - 1];
+
     for (let i = 0; i < arr.length - 1; i++) {
-        if (val >= arr[i] && val <= arr[i+1]) {
+        const inRange = isAscending
+            ? (val >= arr[i] && val <= arr[i+1])  // 升序检查
+            : (val <= arr[i] && val >= arr[i+1]); // 降序检查
+            
+        if (inRange) {
             return { i1: i, i2: i + 1 };
         }
     }
+    
+    // 检查最后一个元素 (理论上如果边界检查正确, 这里可能不需要)
     if (val === arr[arr.length - 1]) {
          return { i1: arr.length - 1, i2: arr.length - 1 };
     }
-    return null; 
+    return null; // 如果在循环中未找到，则返回 null
 }
+// --- 修复结束 ---
 
 /**
  * 线性插值
@@ -397,7 +527,11 @@ function findIndices(val, arr) {
  */
 function linearInterp(x, x1, x2, y1, y2) {
     if (x1 === x2) return y1;
-    return ((x2 - x) / (x2 - x1)) * y1 + ((x - x1) / (x2 - x1)) * y2;
+    // 确保分母不为零
+    const denom = (x2 - x1);
+    if (denom === 0) return y1; // 避免除以零
+    
+    return ((x2 - x) / denom) * y1 + ((x - x1) / denom) * y2;
 }
 
 /**

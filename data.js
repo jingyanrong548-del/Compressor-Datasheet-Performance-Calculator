@@ -13,5 +13,9 @@ var allPerformanceData = {
     
     // 添加 Nidec 数据
     // nidecData 变量来自 nidec.data.js (已在 index.html 中此文件之前加载)
-    "Nidec": nidecData
+    "Nidec": nidecData,
+
+    // 添加 Weishans 数据
+    // weishansModelData 变量来自 weishans.data.js (已在 index.html 中此文件之前加载)
+    "Weishans": weishansModelData
 };

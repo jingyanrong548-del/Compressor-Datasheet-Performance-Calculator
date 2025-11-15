@@ -24,6 +24,7 @@
                 <select id="manufacturer" name="manufacturer" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                     <option value="Danfoss">Danfoss (插值计算)</option>
                     <option value="Nidec">Nidec (型号浏览)</option>
+                    <option value="Weishans">Weishans (计算 & 浏览)</option>
                 </select>
             </div>
 
@@ -120,13 +121,23 @@
                     </div>
             </div>
 
+            <div id="weishans-viewer" class="hidden mt-10 space-y-6">
+                <h2 class="text-2xl font-semibold text-gray-800 border-b-2 border-blue-200 pb-2 mb-6">
+                    额定工况数据浏览 (所选型号)
+                </h2>
+                
+                <div id="weishans-tables-container" class="space-y-8">
+                    </div>
+            </div>
+
         </div>
     </div>
 
     <script src="sy300.data.js"></script>
     <script src="sy240.data.js"></script>
     <script src="sy380.data.js"></script>
-    <script src="nidec.data.js"></script> <script src="data.js"></script>
+    <script src="nidec.data.js"></script>
+    <script src="weishans.data.js"></script> <script src="data.js"></script>
     
     <script src="app.js"></script>
 </body>
